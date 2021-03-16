@@ -8,15 +8,15 @@ using UnityEngine.UI;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
-using ValheimPlus.Configurations;
 
 namespace TombstoneRedefined {
-    [BepInPlugin("net.bdew.valheim.tombstoneredefined", "TombstoneRedefined", "0.0.1")]
+    [BepInPlugin("net.bdew.valheim.tombstoneredefined", "TombstoneRedefined", "0.0.2")]
     public class TombstoneRedefined: BaseUnityPlugin {
         private static ManualLogSource LogSource;
         private static List<ItemDrop.ItemData> equipedItems;
         private static Player player;
 
+        // Awake Phase, define the Logger
         void Awake() {
             LogSource = Logger;
             LogSource.LogInfo(string.Format("TombstoneRedefined is Awake"));
@@ -24,28 +24,32 @@ namespace TombstoneRedefined {
             //Player 
         }
 
+        // When Player is spawned got his instance
         [HarmonyPatch(typeof(Player), "OnSpawned")]
         [HarmonyPrefix]
         static void GetPlayerInstanceWhenSpawned(Player __instance) {
             player = __instance;
-            LogSource.LogInfo(string.Format("{0} is SPAWNED", player.GetPlayerName()));
         }
 
-        // track the dead of a player
+        // before the death of a Player I will filter his inventory 
+        // looking at his equiped items
         [HarmonyPatch(typeof(Player), "OnDeath")]
         [HarmonyPrefix]
         static void GetInventoryItems(Player __instance) {
-            LogSource.LogInfo(string.Format("{0} is DEAD", __instance.GetPlayerName()));
             equipedItems = filterWearableItemsFrom(__instance.GetInventory().GetEquipedtems());
-            PrintItems(equipedItems);
+            //PrintItems(equipedItems);
         }
 
+        // After the takeall of a Tombstone happends
+        // check if player is owner
+        // equip the before dead armor
         [HarmonyPatch(typeof(TombStone), "OnTakeAllSuccess")]
         [HarmonyPostfix]
         static void EquipLastItems(TombStone __instance) {
+            if (__instance.GetOwner() != player.GetPlayerID()) return;
+
             LogSource.LogInfo(string.Format("{0} has picked up all from TOMBSTONE", player.GetPlayerName()));
             if (player) {
-                LogSource.LogInfo(string.Format("{0} is defined", player.GetPlayerName()));
                 EquipLastItemsToRespownedPlayer(equipedItems, player);
             }
         }
@@ -72,6 +76,20 @@ namespace TombstoneRedefined {
                     continue;
                 } else {
                     List<ItemDrop.ItemData> matchingList = currentInventory.FindAll(
+                        i =>    i.m_shared.m_name.Equals(item.m_shared.m_name) &&
+                                i.IsEquipable() == item.IsEquipable() &&
+                                i.IsWeapon() == item.IsWeapon() &&
+                                Mathf.Approximately(i.GetArmor(), item.GetArmor()) &&
+                                Mathf.Approximately(i.m_shared.m_maxDurability, item.m_shared.m_maxDurability)
+                    );
+
+                    if (matchingList.Count > 0) {
+                        ItemDrop.ItemData itemToEquip = matchingList.First();
+                        player.EquipItem(itemToEquip, false);
+                        alreadyEquiped.Add(itemToEquip.m_shared.m_name, true);
+                    }
+
+                    /*List<ItemDrop.ItemData> matchingList = currentInventory.FindAll(
                         i => i.m_shared.m_name.Equals(item.m_shared.m_name)
                     );
 
@@ -81,46 +99,17 @@ namespace TombstoneRedefined {
                             alreadyEquiped.Add(itemInInventory.m_shared.m_name, true);
                             break;
                         }
-                    }
+                    }*/
                 }
             }
         }
 
+        // debug functions to print items
         private static void PrintItems(List<ItemDrop.ItemData> itemList) {
             foreach (ItemDrop.ItemData item in itemList) {
                 LogSource.LogInfo(string.Format("{0} has armor {1}", item.m_shared.m_name, item.GetArmor()));
 
             }
-        }
-
-        private static bool CompareItem(ItemDrop.ItemData first, ItemDrop.ItemData second) {
-            if (!first.m_shared.m_name.Equals(second.m_shared.m_name)) {
-                return false;
-            }
-
-            if (first.IsEquipable() != second.IsEquipable()) {
-                return false;
-            }
-
-            if (first.IsWeapon() != second.IsWeapon()) {
-                return false;
-            }
-
-            short armor1 = (short) first.GetArmor();
-            short armor2 = (short) second.GetArmor();
-
-            if (armor1 != armor2) {
-                return false;
-            }
-
-            short durability1 = (short) first.m_shared.m_maxDurability;
-            short durability2 = (short) second.m_shared.m_maxDurability;
-
-            if (durability1 != durability2) {
-                return false;
-            }
-
-            return true;
         }
     }
 }
