@@ -10,7 +10,7 @@ using BepInEx.Logging;
 using HarmonyLib;
 
 namespace TombstoneRedefined {
-    [BepInPlugin("net.bdew.valheim.tombstoneredefined", "TombstoneRedefined", "0.0.2")]
+    [BepInPlugin("net.bdew.valheim.tombstoneredefined", "TombstoneRedefined", "1.0.0")]
     public class TombstoneRedefined: BaseUnityPlugin {
         private static ManualLogSource LogSource;
         private static List<ItemDrop.ItemData> equipedItems;
@@ -36,7 +36,7 @@ namespace TombstoneRedefined {
         [HarmonyPatch(typeof(Player), "OnDeath")]
         [HarmonyPrefix]
         static void GetInventoryItems(Player __instance) {
-            equipedItems = filterWearableItemsFrom(__instance.GetInventory().GetEquipedtems());
+            equipedItems = __instance.GetInventory().GetEquipedtems();  //filterWearableItemsFrom(__instance.GetInventory().GetEquipedtems());
             //PrintItems(equipedItems);
         }
 
@@ -54,7 +54,7 @@ namespace TombstoneRedefined {
             }
         }
 
-        private static List<ItemDrop.ItemData> filterWearableItemsFrom(List<ItemDrop.ItemData> equipedItems) {
+        /*private static List<ItemDrop.ItemData> filterWearableItemsFrom(List<ItemDrop.ItemData> equipedItems) {
             List<ItemDrop.ItemData> filtered = new List<ItemDrop.ItemData>();
 
             foreach (ItemDrop.ItemData item in equipedItems) {
@@ -65,7 +65,7 @@ namespace TombstoneRedefined {
             }
 
             return filtered;
-        }
+        }*/
 
 
         private static void EquipLastItemsToRespownedPlayer(List<ItemDrop.ItemData> list, Player player) {
@@ -79,6 +79,7 @@ namespace TombstoneRedefined {
                         i =>    i.m_shared.m_name.Equals(item.m_shared.m_name) &&
                                 i.IsEquipable() == item.IsEquipable() &&
                                 i.IsWeapon() == item.IsWeapon() &&
+                                i.GetDamage().m_damage == item.GetDamage().m_damage &&
                                 Mathf.Approximately(i.GetArmor(), item.GetArmor()) &&
                                 Mathf.Approximately(i.m_shared.m_maxDurability, item.m_shared.m_maxDurability)
                     );
